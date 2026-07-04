@@ -1,4 +1,4 @@
-name: 🐢 海龟汤
+name: 🐢 海龟汤 - 测试
 
 on:
   workflow_dispatch:
@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -25,28 +24,27 @@ jobs:
           npm install
           node server.js &
           sleep 3
-          curl -s http://localhost:3456/api/soups | head -c 50
-          echo " ✅"
+          curl -s http://localhost:3456/api/soups 2>/dev/null | head -c 100
+          echo " ✅ 服务就绪"
 
-      - name: 公网隧道
+      - name: 隧道
         run: |
-          curl -sLO https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-          chmod +x cloudflared-linux-amd64
-          ./cloudflared-linux-amd64 tunnel --url http://localhost:3456 --no-autoupdate > /tmp/cf.log 2>&1 &
-          sleep 15
-          URL=$(grep -oP 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
-          cat /tmp/cf.log
-          echo ""
-          echo "🌐 $URL"
-          echo "$URL" > public/tunnel_url.txt
-          echo "🌐 $URL" >> $GITHUB_STEP_SUMMARY
+          # 安装 bore
+          curl -sL https://github.com/ekzhang/bore/releases/download/v0.5.2/bore-v0.5.2-x86_64-unknown-linux-musl.tar.gz | tar xz
+          ./bore local 3456 --to bore.pub > /tmp/bore.log 2>&1 &
+          sleep 8
+          cat /tmp/bore.log
+          URL=$(grep -oP 'bore\.pub:\d+' /tmp/bore.log | head -1)
+          echo "🌐 http://$URL" | tee public/tunnel_url.txt
+          echo "🌐 http://$URL" >> $GITHUB_STEP_SUMMARY
 
-      - name: 提交URL到仓库
+      - name: 提交地址
         run: |
+          URL=$(cat public/tunnel_url.txt)
           git config user.name "bot"
           git config user.email "bot@turtle.soup"
           git add public/tunnel_url.txt
-          git commit -m "🌐 $(cat public/tunnel_url.txt)" || true
+          git commit -m "🌐 $URL" || true
           git push || true
 
       - name: 保持运行
