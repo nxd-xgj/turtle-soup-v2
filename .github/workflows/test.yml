@@ -8,6 +8,8 @@ on:
         required: true
         default: '60'
 
+permissions: write-all
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -28,11 +30,14 @@ jobs:
 
       - name: 公网隧道
         run: |
-          npx localtunnel --port 3456 > /tmp/lt.txt 2>&1 &
-          sleep 12
-          cat /tmp/lt.txt
-          URL=$(grep -oP 'https://[a-zA-Z0-9.-]*\.loca\.lt' /tmp/lt.txt | head -1)
-          echo "URL=$URL"
+          curl -sLO https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared-linux-amd64
+          ./cloudflared-linux-amd64 tunnel --url http://localhost:3456 --no-autoupdate > /tmp/cf.log 2>&1 &
+          sleep 15
+          URL=$(grep -oP 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
+          cat /tmp/cf.log
+          echo ""
+          echo "🌐 $URL"
           echo "$URL" > public/tunnel_url.txt
           echo "🌐 $URL" >> $GITHUB_STEP_SUMMARY
 
