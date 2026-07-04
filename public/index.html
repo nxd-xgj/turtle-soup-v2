@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海龟汤 - Turtle Soup</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: rgba(20,20,35,0.7);
+  --surface-hover: rgba(30,30,50,0.8);
+  --glass: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --text: #e0e0e0;
+  --text-dim: #888;
+  --accent: #6c5ce7;
+  --accent-glow: rgba(108,92,231,0.3);
+  --danger: #e74c3c;
+  --success: #27ae60;
+  --warning: #f39c12;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+#bg-canvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+#app { position:relative; z-index:1; min-height:100vh; }
+
+/* Mouse glow */
+.mouse-glow {
+  position:fixed; width:300px; height:300px;
+  background:radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  border-radius:50%; pointer-events:none; z-index:0;
+  transform:translate(-50%,-50%);
+  opacity:0.6;
+}
+
+/* Nav */
+nav {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 32px;
+  background:var(--surface);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:100;
+}
+nav .logo {
+  font-size:1.4em; font-weight:700;
+  background:linear-gradient(135deg, #a29bfe, #6c5ce7);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+nav .nav-links { display:flex; gap:8px; align-items:center; }
+nav .nav-links a, nav .nav-links button {
+  color:var(--text); text-decoration:none; padding:8px 18px;
+  border-radius:20px; font-size:0.9em; cursor:pointer;
+  background:none; border:1px solid transparent;
+  transition:all 0.2s;
+}
+nav .nav-links a:hover, nav .nav-links button:hover { border-color:var(--border); background:var(--glass); }
+nav .nav-links a.active { background:var(--accent); color:white; border-color:var(--accent); }
+nav .user-info { display:flex; align-items:center; gap:10px; }
+nav .user-name { font-size:0.9em; color:var(--text-dim); }
+
+/* Pages */
+.page { display:none; padding:24px 32px; max-width:1200px; margin:0 auto; }
+.page.active { display:block; }
+
+/* Glass card */
+.card {
+  background:var(--surface); backdrop-filter:blur(16px);
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:24px; transition:all 0.3s;
+}
+.card:hover { border-color:rgba(255,255,255,0.15); transform:translateY(-2px); }
+.card-header { font-size:1.1em; font-weight:600; margin-bottom:12px; }
+.card-meta { font-size:0.8em; color:var(--text-dim); margin-bottom:8px; }
+.card-body { font-size:0.9em; line-height:1.6; color:var(--text-dim); }
+
+/* Buttons */
+.btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:10px 24px; border-radius:20px; font-size:0.9em; cursor:pointer;
+  border:none; transition:all 0.2s; font-weight:500;
+}
+.btn-primary { background:var(--accent); color:white; }
+.btn-primary:hover { box-shadow:0 0 20px var(--accent-glow); }
+.btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+.btn-outline:hover { border-color:var(--accent); color:var(--accent); }
+.btn-sm { padding:6px 14px; font-size:0.8em; }
+.btn-danger { background:var(--danger); color:white; }
+
+/* Input */
+input, textarea, select {
+  background:rgba(255,255,255,0.05); border:1px solid var(--border);
+  color:var(--text); padding:10px 16px; border-radius:var(--radius-sm);
+  font-size:0.9em; width:100%; outline:none; font-family:inherit;
+  transition:border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus { border-color:var(--accent); }
+
+/* Modal */
+.modal-overlay {
+  display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);
+  z-index:200; align-items:center; justify-content:center;
+}
+.modal-overlay.open { display:flex; }
+.modal {
+  background:var(--surface); backdrop-filter:blur(24px);
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:32px; width:400px; max-width:90vw;
+}
+.modal h2 { margin-bottom:20px; font-size:1.2em; }
+.modal .form-group { margin-bottom:14px; }
+.modal .form-group label { display:block; margin-bottom:4px; font-size:0.85em; color:var(--text-dim); }
+
+/* Grid */
+.grid-2 { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px,1fr)); gap:16px; }
+.grid-3 { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:16px; }
+
+/* Search bar */
+.search-bar { display:flex; gap:8px; margin-bottom:24px; }
+.search-bar input { flex:1; }
+
+/* Tags */
+.tags { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.tag {
+  padding:3px 10px; border-radius:12px; font-size:0.75em;
+  background:rgba(108,92,231,0.15); color:#a29bfe;
+  border:1px solid rgba(108,92,231,0.2);
+}
+.tag.dark { background:rgba(231,76,60,0.15); color:#e74c3c; border-color:rgba(231,76,60,0.2); }
+.tag.mystery { background:rgba(52,152,219,0.15); color:#3498db; border-color:rgba(52,152,219,0.2); }
+
+/* === ROOM PAGE === */
+.room-container { display:flex; gap:16px; height:calc(100vh - 180px); }
+.room-chat { flex:1; display:flex; flex-direction:column; background:var(--surface); backdrop-filter:blur(16px); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.room-sidebar { width:280px; display:flex; flex-direction:column; gap:12px; }
+.room-sidebar .card { flex-shrink:0; }
+
+.chat-messages {
+  flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:8px;
+}
+.chat-msg { max-width:80%; animation:fadeIn 0.3s; }
+.chat-msg.mine { align-self:flex-end; }
+.chat-msg.system { align-self:center; max-width:90%; }
+.chat-msg .msg-nickname { font-size:0.75em; color:var(--text-dim); margin-bottom:2px; }
+.chat-msg .msg-bubble {
+  padding:10px 16px; border-radius:16px; font-size:0.9em; line-height:1.5;
+  background:rgba(255,255,255,0.06); word-break:break-word;
+}
+.chat-msg.mine .msg-bubble { background:var(--accent); color:white; }
+.chat-msg.ai_intervene .msg-bubble {
+  background:rgba(243,156,18,0.15); border:1px solid rgba(243,156,18,0.3);
+  font-style:italic;
+}
+.chat-msg.ai_answer .msg-bubble {
+  background:rgba(52,152,219,0.15); border:1px solid rgba(52,152,219,0.3);
+}
+.chat-msg.system .msg-bubble {
+  background:rgba(39,174,96,0.15); border:1px solid rgba(39,174,96,0.3);
+  font-weight:500; text-align:center;
+}
+.chat-msg .msg-time { font-size:0.7em; color:var(--text-dim); margin-top:2px; }
+
+.chat-input-area { padding:12px 16px; border-top:1px solid var(--border); display:flex; gap:8px; }
+.chat-input-area input { flex:1; border-radius:20px; }
+.chat-input-area .btn { border-radius:20px; }
+
+/* Soup face display in room */
+.soup-face-display {
+  background:rgba(108,92,231,0.05); border:1px solid rgba(108,92,231,0.15);
+  border-radius:var(--radius-sm); padding:16px; font-size:0.85em; line-height:1.8;
+  white-space:pre-wrap; color:var(--text-dim); max-height:200px; overflow-y:auto;
+}
+
+/* Toast */
+.toast {
+  position:fixed; bottom:32px; left:50%; transform:translateX(-50%);
+  padding:12px 24px; border-radius:20px; font-size:0.85em;
+  z-index:300; animation:fadeIn 0.3s;
+}
+.toast.success { background:var(--success); color:white; }
+.toast.error { background:var(--danger); color:white; }
+
+/* Animations */
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+.card { animation:slideUp 0.4s ease-out; }
+
+/* Difficulty stars */
+.difficulty { color:#f39c12; font-size:0.85em; letter-spacing:2px; }
+
+/* Mobile responsive */
+@media (max-width:768px) {
+  .room-container { flex-direction:column; height:auto; }
+  .room-sidebar { width:100%; order:-1; }
+  .grid-2, .grid-3 { grid-template-columns:1fr; }
+  nav { padding:12px 16px; }
+  nav .nav-links { gap:4px; }
+  nav .nav-links a, nav .nav-links button { padding:6px 12px; font-size:0.8em; }
+  .page { padding:16px; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:3px; }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div class="mouse-glow" id="mouse-glow"></div>
+
+<div id="app">
+  <nav>
+    <div class="logo">🐢 海龟汤</div>
+    <div class="nav-links" id="nav-links">
+      <a href="#/" data-page="home">首页</a>
+      <a href="#/soups" data-page="soups">汤谱库</a>
+      <a href="#/rooms" data-page="rooms">游戏大厅</a>
+      <a href="#/admin" data-page="admin" style="display:none" id="admin-link">管理</a>
+      <span class="user-info" id="user-info" style="display:none">
+        <span class="user-name" id="user-name-display"></span>
+        <button class="btn btn-outline btn-sm" onclick="logout()">退出</button>
+      </span>
+      <button class="btn btn-primary btn-sm" id="login-btn" onclick="showLoginModal()">登录</button>
+    </div>
+  </nav>
+
+  <!-- 首页 -->
+  <div class="page active" id="page-home">
+    <div style="text-align:center;padding:60px 0 40px">
+      <h1 style="font-size:2.4em;margin-bottom:12px;background:linear-gradient(135deg,#a29bfe,#fd79a8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">欢迎来到海龟汤</h1>
+      <p style="color:var(--text-dim);font-size:1.1em;max-width:500px;margin:0 auto 32px">
+        端上一碗汤，你来猜汤底。<br>是或不是，答案在细节里。
+      </p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="navigate('rooms')">🎮 进入游戏大厅</button>
+        <button class="btn btn-outline" onclick="navigate('soups')">📖 浏览汤谱库</button>
+      </div>
+    </div>
+    <!-- 最近汤谱 -->
+    <div style="margin-top:20px">
+      <h3 style="margin-bottom:16px;font-size:1em;color:var(--text-dim)">🔥 热门海龟汤</h3>
+      <div class="grid-3" id="home-soups">加载中...</div>
+    </div>
+  </div>
+
+  <!-- 汤谱库 -->
+  <div class="page" id="page-soups">
+    <h2 style="margin-bottom:20px">📖 汤谱库</h2>
+    <div class="search-bar">
+      <input type="text" id="soup-search" placeholder="搜索汤名、内容..." oninput="loadSoups()">
+      <select id="soup-type" onchange="loadSoups()" style="width:auto">
+        <option value="">全部类型</option>
+        <option value="normal">普通</option>
+        <option value="host_manual">主持人手册</option>
+      </select>
+    </div>
+    <div class="grid-3" id="soups-grid">加载中...</div>
+    <div style="text-align:center;margin-top:20px" id="soups-pagination"></div>
+  </div>
+
+  <!-- 游戏大厅 -->
+  <div class="page" id="page-rooms">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <h2>🎮 游戏大厅</h2>
+      <button class="btn btn-primary" onclick="showCreateRoom()">+ 创建房间</button>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="room-search" placeholder="搜索房间名称或房号..." oninput="loadRooms()">
+    </div>
+    <div class="grid-2" id="rooms-grid">加载中...</div>
+
+    <!-- 创建房间模态窗 -->
+    <div class="modal-overlay" id="create-room-modal">
+      <div class="modal">
+        <h2>创建房间</h2>
+        <div class="form-group"><label>房间名称</label><input type="text" id="new-room-title" placeholder="给你的房间起个名字"></div>
+        <div class="form-group"><label>选择汤谱（可选）</label>
+          <select id="new-room-soup"><option value="">暂不选择</option></select>
+        </div>
+        <div class="form-group"><label>主持人类型</label>
+          <select id="new-room-host">
+            <option value="ai">AI主持人</option>
+            <option value="human">真人主持</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+          <button class="btn btn-outline" onclick="closeCreateRoom()">取消</button>
+          <button class="btn btn-primary" onclick="createRoom()">创建</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 加入房间模态窗 -->
+    <div class="modal-overlay" id="join-room-modal">
+      <div class="modal">
+        <h2>加入房间</h2>
+        <div class="form-group"><label>房间码</label><input type="text" id="join-code" placeholder="输入6位房间码"></div>
+        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+          <button class="btn btn-outline" onclick="closeJoinRoom()">取消</button>
+          <button class="btn btn-primary" onclick="joinRoom()">加入</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 房间页 -->
+  <div class="page" id="page-room">
+    <div style="margin-bottom:12px">
+      <button class="btn btn-outline btn-sm" onclick="leaveRoom()">← 返回大厅</button>
+      <span style="margin-left:12px;font-weight:600" id="room-title-display"></span>
+      <span style="margin-left:8px;font-size:0.8em;color:var(--text-dim)" id="room-code-display"></span>
+    </div>
+    <div class="room-container">
+      <div class="room-chat">
+        <div class="chat-messages" id="chat-messages">
+          <div style="text-align:center;color:var(--text-dim);padding:20px">欢迎来到房间，游戏即将开始...</div>
+        </div>
+        <div class="chat-input-area">
+          <input type="text" id="chat-input" placeholder="输入消息... (用 /ask 开头进行提问)" onkeydown="if(event.key==='Enter')sendMessage()">
+          <button class="btn btn-primary btn-sm" onclick="sendMessage()">发送</button>
+          <button class="btn btn-outline btn-sm" onclick="askAI()" title="向AI主持人提问">🤔 提问</button>
+        </div>
+      </div>
+      <div class="room-sidebar">
+        <div class="card" id="room-info-card">
+          <div class="card-header">🏠 房间信息</div>
+          <div style="font-size:0.85em;color:var(--text-dim)">
+            <p>状态：<span id="room-status-display">等待中</span></p>
+            <p>主持人：<span id="room-host-display">AI</span></p>
+            <p>玩家：<span id="room-players-display">0人</span></p>
+            <p style="margin-top:8px;font-weight:600;color:var(--text)">📜 汤面</p>
+            <div class="soup-face-display" id="room-soup-face">未选择汤谱</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">👥 玩家列表</div>
+          <div id="room-players-list" style="font-size:0.85em;color:var(--text-dim)"></div>
+        </div>
+        <div id="room-owner-controls" style="display:none">
+          <div class="card">
+            <div class="card-header">🎛 房主操作</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-outline btn-sm" onclick="updateRoomStatus('playing')">开始游戏</button>
+              <button class="btn btn-outline btn-sm" onclick="updateRoomStatus('waiting')">暂停</button>
+              <button class="btn btn-danger btn-sm" onclick="updateRoomStatus('ended')">结束</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 管理后台 -->
+  <div class="page" id="page-admin">
+    <h2 style="margin-bottom:20px">⚙️ 管理后台</h2>
+    <div class="grid-2" style="margin-bottom:24px">
+      <div class="card"><div class="card-header">总汤谱</div><div style="font-size:2em;font-weight:700" id="stat-soups">-</div></div>
+      <div class="card"><div class="card-header">总房间</div><div style="font-size:2em;font-weight:700" id="stat-rooms">-</div></div>
+      <div class="card"><div class="card-header">活跃房间</div><div style="font-size:2em;font-weight:700" id="stat-active">-</div></div>
+      <div class="card"><div class="card-header">注册用户</div><div style="font-size:2em;font-weight:700" id="stat-users">-</div></div>
+    </div>
+    <h3 style="margin-bottom:12px">📊 AI介入日志</h3>
+    <div id="ai-logs" style="font-size:0.85em;color:var(--text-dim)">加载中...</div>
+    <h3 style="margin:24px 0 12px">🍲 汤谱管理（含汤底）</h3>
+    <div id="admin-soups">加载中...</div>
+  </div>
+</div>
+
+<!-- 登录模态窗 -->
+<div class="modal-overlay" id="login-modal">
+  <div class="modal">
+    <h2 id="login-title">登录</h2>
+    <div class="form-group"><label>用户名</label><input type="text" id="login-user"></div>
+    <div class="form-group"><label>密码</label><input type="password" id="login-pass"></div>
+    <div class="form-group" id="login-nickname-group" style="display:none"><label>昵称</label><input type="text" id="login-nick"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:space-between;align-items:center">
+      <a href="#" style="font-size:0.85em;color:var(--accent);text-decoration:none" id="toggle-mode" onclick="toggleLoginMode()">没有账号？去注册</a>
+      <button class="btn btn-primary" id="login-submit-btn" onclick="doLogin()">登录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 汤详情模态窗 -->
+<div class="modal-overlay" id="soup-detail-modal">
+  <div class="modal" style="max-width:600px;max-height:80vh;overflow-y:auto">
+    <h2 id="soup-detail-title"></h2>
+    <div style="margin:8px 0" id="soup-detail-meta"></div>
+    <div style="font-size:0.85em;line-height:1.8;white-space:pre-wrap;color:var(--text)" id="soup-detail-face"></div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)" id="soup-detail-bottom" hidden>
+      <h4 style="color:var(--danger);margin-bottom:8px">🔑 汤底</h4>
+      <div style="font-size:0.85em;line-height:1.8;white-space:pre-wrap;color:var(--text-dim)" id="soup-detail-bottom-text"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" onclick="closeSoupDetail()">关闭</button>
+      <button class="btn btn-primary btn-sm" onclick="useSoupInRoom()" id="btn-use-soup" style="display:none">🎮 用这个汤开房间</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
