@@ -1,4 +1,4 @@
-name: 🐢 海龟汤 - 临时测试
+name: 🐢 海龟汤
 
 on:
   workflow_dispatch:
@@ -18,28 +18,31 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 安装依赖并启动
+      - name: 安装并启动
         run: |
           npm install
           node server.js &
           sleep 3
-          curl -s http://localhost:3456/api/soups | head -c 100
-          echo ""
-          echo "✅ 服务已启动"
+          curl -s http://localhost:3456/api/soups | head -c 50
+          echo " ✅"
 
-      - name: 🌐 公网隧道
+      - name: 公网隧道
         run: |
           npx localtunnel --port 3456 > /tmp/lt.txt 2>&1 &
-          sleep 10
-          URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.loca\.lt' /tmp/lt.txt | head -1)
+          sleep 12
           cat /tmp/lt.txt
-          echo ""
-          echo "=============================================="
-          echo "  公网地址: $URL"
-          echo "  ⏱ 有效期: ${{ github.event.inputs.duration }} 分钟"
-          echo "=============================================="
-          echo "🌐 公网地址: $URL" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          URL=$(grep -oP 'https://[a-zA-Z0-9.-]*\.loca\.lt' /tmp/lt.txt | head -1)
+          echo "URL=$URL"
+          echo "$URL" > public/tunnel_url.txt
+          echo "🌐 $URL" >> $GITHUB_STEP_SUMMARY
 
-      - name: ⏱ 保持运行
+      - name: 提交URL到仓库
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@turtle.soup"
+          git add public/tunnel_url.txt
+          git commit -m "🌐 $(cat public/tunnel_url.txt)" || true
+          git push || true
+
+      - name: 保持运行
         run: sleep $(( ${{ github.event.inputs.duration }} * 60 ))
