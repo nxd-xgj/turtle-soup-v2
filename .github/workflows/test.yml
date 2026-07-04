@@ -6,7 +6,7 @@ on:
       duration:
         description: '运行时长（分钟）'
         required: true
-        default: '10'
+        default: '60'
 
 jobs:
   run:
@@ -18,29 +18,28 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 安装依赖
-        run: npm install
-
-      - name: 启动服务器
+      - name: 安装依赖并启动
         run: |
+          npm install
           node server.js &
           sleep 3
+          curl -s http://localhost:3456/api/soups | head -c 100
+          echo ""
           echo "✅ 服务已启动"
 
-      - name: 创建公网隧道
+      - name: 🌐 公网隧道
         run: |
-          curl -sLO https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-          chmod +x cloudflared-linux-amd64
-          ./cloudflared-linux-amd64 tunnel --url http://localhost:3456 --no-autoupdate > /tmp/cf.log 2>&1 &
+          npx localtunnel --port 3456 > /tmp/lt.txt 2>&1 &
           sleep 10
-          URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
-          echo "=========================================="
-          echo "🌐 公网地址: $URL"
-          echo "⏱ 将在 ${{ github.event.inputs.duration }} 分钟后自动关闭"
-          echo "=========================================="
-          echo "PUBLIC_URL=$URL" >> $GITHUB_ENV
+          URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.loca\.lt' /tmp/lt.txt | head -1)
+          cat /tmp/lt.txt
+          echo ""
+          echo "=============================================="
+          echo "  公网地址: $URL"
+          echo "  ⏱ 有效期: ${{ github.event.inputs.duration }} 分钟"
+          echo "=============================================="
+          echo "🌐 公网地址: $URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: 保持运行
-        run: |
-          sleep $(( ${{ github.event.inputs.duration }} * 60 ))
-          echo "⏰ 时间到，自动关闭"
+      - name: ⏱ 保持运行
+        run: sleep $(( ${{ github.event.inputs.duration }} * 60 ))
